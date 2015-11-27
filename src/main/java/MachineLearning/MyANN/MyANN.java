@@ -14,14 +14,6 @@ import weka.filters.unsupervised.attribute.NominalToBinary;
 /**
  * Created by fahziar on 23/11/2015.
  */
-/**
- <!-- globalinfo-start -->
- * Class for generating a pruned or unpruned C4.5 decision tree. For more information, see<br/>
- * <br/>
- * Ross Quinlan (1993). C4.5: Programs for Machine Learning. Morgan Kaufmann Publishers, San Mateo, CA.
- * <p/>
- <!-- globalinfo-end -->
- **/
 public class MyANN extends Classifier
         implements OptionHandler {
     // layer[nomer layer][nomer neuron] = nilai pada neuron tsb
@@ -32,18 +24,14 @@ public class MyANN extends Classifier
     // dw[nomer layer][nomer neuron pada layer][nomer neuron tujuan] = delta weight
     private double [][][] dw;
 
-
-    private String hiddenLayers = "h";
-    private int learningRule = 1;
-    private int activationFunction = 1;
+    private String hiddenLayers = "n";
+    private String learningRule = "ptr";
+    private String activationFunction = "linear";
     private double learningRate = 1.0;
     private double momentum = 1.0;
     private int maxIteration = 100;
     private double MSE = 10.0;
-
-    public static void main(String [] argv) {
-        runClassifier(new MyANN(), argv);
-    }
+    private boolean mlp;
 
     // Untuk single layer
     // gradient descent batch
@@ -145,182 +133,146 @@ public class MyANN extends Classifier
         getCapabilities().testWithFail(data);
         init(data);
     }
-
+    
     private void init(Instances data) throws Exception {
-        int nLayer=2;
-        int nOutput = data.numClasses();
-
+        mlp = false;
+        int[] layers = new int[2];
+        layers[1] = data.numClasses();
+        
+        //convert any nominal to binary
         NominalToBinary filter = new NominalToBinary();
         filter.setInputFormat(data);
         data = Filter.useFilter(data, filter);
-        int nInput = data.numAttributes();
-
-        int nMaxNeuron = Math.max(nInput, nOutput);
-
-        if (!hiddenLayers.equals("n")){
+        layers[0] = data.numAttributes();
+        
+        if (!hiddenLayers.equals("n")){ //multi layer perceptron
+            mlp = true;
             String[] splits = hiddenLayers.split(",");
-            int[] layers = new int[splits.length];
-            int i=0;
-            for (String split: splits) {
-                layers[i] = Integer.parseInt(split);
-                i++;
+            layers = new int[splits.length+layers.length];
+            layers[0] = data.numAttributes();
+            layers[layers.length-1] = data.numClasses();
+            for (int i=0; i<splits.length; i++) {
+                layers[i+1] = Integer.parseInt(splits[i]);
             }
-            nLayer += layers.length;
-            i = Utils.maxIndex(layers);
-            nMaxNeuron = Math.max(nMaxNeuron, layers[i]);
         }
-
-        layer = new double [nLayer][nMaxNeuron];
-        weight = new double [nLayer][nMaxNeuron][nMaxNeuron];
-        dw = new double [nLayer][nMaxNeuron][nMaxNeuron];
+        
+        //initialize layer, weight, and dw
+        layer = new double [layers.length][];
+        weight = new double [layers.length][][];
+        dw = new double [layers.length][][];
+        for (int i=0; i<layers.length; i++) {
+            layer[i] = new double[layers[i]];
+            if (i<layers.length-1) {
+                weight[i] = new double[layers[i]][layers[i+1]];
+                dw[i] = new double[layers[i]][layers[i+1]];
+            }
+        }
     }
-
+    
     @Override
     public Enumeration<Option> listOptions() {
+        Vector newVector = new Vector(7);
 
-        Vector newVector = new Vector(4);
-
         newVector.addElement(new Option(
-                "\tLearning Rate for the backpropagation algorithm.\n"
-                        +"\t(Value should be between 0 - 1, Default = 0.3).",
-                "L", 1, "-L <learning rate>"));
+                  "\tLearning Rate for the backpropagation algorithm.\n"
+                  +"\t(Value should be between 0 - 1, Default = 0.3).",
+                  "L", 1, "-L <learning rate>"));
         newVector.addElement(new Option(
-                "\tMomentum Rate for the backpropagation algorithm.\n"
-                        +"\t(Value should be between 0 - 1, Default = 0.2).",
-                "M", 1, "-M <momentum>"));
+                  "\tMomentum Rate for the backpropagation algorithm.\n"
+                  +"\t(Value should be between 0 - 1, Default = 0.2).",
+                  "M", 1, "-M <momentum>"));
         newVector.addElement(new Option(
-                "\tMaximum iteration to train.\n"
-                        +"\t(Default = 500).",
-                "N", 1,"-N <maximum iteration>"));
+                  "\tMaximum iteration to train.\n"
+                  +"\t(Default = 500).",
+                  "N", 1,"-N <maximum iteration>"));
         newVector.addElement(new Option(
-                "\tThe hidden layers to be created for the network.\n"
-                        + "\t(Value should be a list of comma separated Natural \n"
-                        + "\tnumbers or the letter 'n' = no hidden layer, \n"
-                        + "\tdefault 'n' \n",
-                "H", 1, "-H <comma seperated numbers for nodes on each layer>"));
+                  "\tMSE value as threshold for training termination.\n"
+                  +"\t(Default = 0.25).",
+                  "E", 1,"-E <MSE>"));
+        newVector.addElement(new Option(
+                  "\tThe hidden layers to be created for the network.\n"
+                  + "\t(Value should be a list of comma separated Natural \n"
+                  + "\tnumbers or the letter 'n' = no hidden layer, \n"
+                  + "\tdefault 'n') \n",
+                  "H", 1, "-H <comma seperated numbers for nodes on each layer>"));
+        newVector.addElement(new Option(
+                  "\tThe learning rule for single perceptron.\n"
+                  + "\t(Value should be 'ptr', 'batch', 'delta', \n"
+                  + "\tdefault 'ptr') \n",
+                  "R", 1, "-R <learning rule>"));
+        newVector.addElement(new Option(
+                  "\tThe activation function for network.\n"
+                  + "\t(Value should be 'sigmoid', 'sign', 'step', 'linear', \n"
+                  + "\tdefault 'linear') \n",
+                  "F", 1, "-F <activation function>"));
 
         return newVector.elements();
     }
-
-    /**
-     <!-- options-start -->
-     * Valid options are: <p/>
-     *
-     * <pre> -L &lt;learning rate&gt;
-     *  Learning Rate for the backpropagation algorithm.
-     *  (Value should be between 0 - 1, Default = 0.3).</pre>
-     *
-     * <pre> -M &lt;momentum&gt;
-     *  Momentum Rate for the backpropagation algorithm.
-     *  (Value should be between 0 - 1, Default = 0.2).</pre>
-     *
-     * <pre> -N &lt;number of epochs&gt;
-     *  Number of epochs to train through.
-     *  (Default = 500).</pre>
-     *
-     * <pre> -V &lt;percentage size of validation set&gt;
-     *  Percentage size of validation set to use to terminate
-     *  training (if this is non zero it can pre-empt num of epochs.
-     *  (Value should be between 0 - 100, Default = 0).</pre>
-     *
-     * <pre> -S &lt;seed&gt;
-     *  The value used to seed the random number generator
-     *  (Value should be &gt;= 0 and and a long, Default = 0).</pre>
-     *
-     * <pre> -E &lt;threshold for number of consequetive errors&gt;
-     *  The consequetive number of errors allowed for validation
-     *  testing before the netwrok terminates.
-     *  (Value should be &gt; 0, Default = 20).</pre>
-     *
-     * <pre> -G
-     *  GUI will be opened.
-     *  (Use this to bring up a GUI).</pre>
-     *
-     * <pre> -A
-     *  Autocreation of the network connections will NOT be done.
-     *  (This will be ignored if -G is NOT set)</pre>
-     *
-     * <pre> -B
-     *  A NominalToBinary filter will NOT automatically be used.
-     *  (Set this to not use a NominalToBinary filter).</pre>
-     *
-     * <pre> -H &lt;comma seperated numbers for nodes on each layer&gt;
-     *  The hidden layers to be created for the network.
-     *  (Value should be a list of comma separated Natural
-     *  numbers or the letters 'a' = (attribs + classes) / 2,
-     *  'i' = attribs, 'o' = classes, 't' = attribs .+ classes)
-     *  for wildcard values, Default = a).</pre>
-     *
-     * <pre> -C
-     *  Normalizing a numeric class will NOT be done.
-     *  (Set this to not normalize the class if it's numeric).</pre>
-     *
-     * <pre> -I
-     *  Normalizing the attributes will NOT be done.
-     *  (Set this to not normalize the attributes).</pre>
-     *
-     * <pre> -R
-     *  Reseting the network will NOT be allowed.
-     *  (Set this to not allow the network to reset).</pre>
-     *
-     * <pre> -D
-     *  Learning rate decay will occur.
-     *  (Set this to cause the learning rate to decay).</pre>
-     *
-     <!-- options-end -->
-     **/
+    
     @Override
     public void setOptions(String[] options) throws Exception {
-        //the defaults can be found here!!!!
         String learningString = Utils.getOption('L', options);
         if (learningString.length() != 0) {
-            learningRate = new Double(learningString);
-        } else {
-            learningRate = 0.3;
+          learningRate = new Double(learningString);
         }
         String momentumString = Utils.getOption('M', options);
         if (momentumString.length() != 0) {
-            momentum = new Double(momentumString);
-        } else {
-            momentum = 0.2;
+          momentum = new Double(momentumString);
         }
         String epochsString = Utils.getOption('N', options);
         if (epochsString.length() != 0) {
-            maxIteration = Integer.parseInt(epochsString);
-        } else {
-            maxIteration = 500;
+          maxIteration = Integer.parseInt(epochsString);
+        }
+        String MSEString = Utils.getOption('E', options);
+        if (MSEString.length() != 0) {
+          MSE = new Double(MSEString);
         }
         String hiddenLayersString = Utils.getOption('H', options);
         if (hiddenLayersString.length() != 0) {
-            this.hiddenLayers = hiddenLayersString;
-        } else {
-            this.hiddenLayers = "n";
+          this.hiddenLayers = hiddenLayersString;
+        }
+        String learningRuleString = Utils.getOption('R', options);
+        if (learningRuleString.length() != 0) {
+          learningRule = learningRuleString;
+        }
+        String activationFunctionString = Utils.getOption('F', options);
+        if (activationFunctionString.length() != 0) {
+          activationFunction = activationFunctionString;
         }
 
         Utils.checkForRemainingOptions(options);
     }
-
+    
     @Override
     public String[] getOptions() {
-
-        String[] options = new String[8];
+        String[] options = new String[14];
         int current = 0;
-        options[current++] = "-L"; options[current++] = "" + learningRate;
+        options[current++] = "-L"; options[current++] = "" + learningRate; 
         options[current++] = "-M"; options[current++] = "" + momentum;
         options[current++] = "-N"; options[current++] = "" + maxIteration;
-        options[current++] = "-H"; options[current++] = "" + hiddenLayers;
+        options[current++] = "-E"; options[current++] = "" + MSE; 
+        options[current++] = "-H"; options[current++] = hiddenLayers;
+        options[current++] = "-R"; options[current++] = learningRule;
+        options[current++] = "-F"; options[current++] = activationFunction;
 
         while (current < options.length) {
-            options[current++] = "";
+          options[current++] = "";
         }
         return options;
     }
-
+    
     public static double sigmoid(double x) {return 1 / (1 + Math.exp(-x));}
-
+    
     public static double sign(double x) {return Math.signum(x);}
-
+    
     public static double linear(double x) {return x;}
+    
+    public static double step(double x) {
+        if (x>0)
+            return 1;
+        else
+            return 0;
+    }
 
     /**
      * This will return a string describing the classifier.
@@ -328,13 +280,12 @@ public class MyANN extends Classifier
      */
     public String globalInfo() {
         return
-                "A Classifier that uses backpropagation to classify instances.\n"
-                        + "This network can be built by hand, created by an algorithm or both. "
-                        + "The network can also be monitored and modified during training time. "
-                        + "The nodes in this network are all sigmoid (except for when the class "
-                        + "is numeric in which case the the output nodes become unthresholded "
-                        + "linear units).";
+            "A Classifier that uses backpropagation to classify instances.\n"
+                + "This network can be built by hand, created by an algorithm or both. "
+                + "The network can also be monitored and modified during training time. "
+                + "The nodes in this network are all sigmoid (except for when the class "
+                + "is numeric in which case the the output nodes become unthresholded "
+                + "linear units).";
     }
-
 
 }
