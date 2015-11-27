@@ -63,6 +63,49 @@ public class MyANN extends Classifier
             }
         }
     }
+    
+    /**
+     * Sebelum memanggil prosedur ini, pastikan layer dan weight sudah terinisialisasi
+     */
+    private void forwardPropagation () {
+    	int nLayer = this.layer.length;
+    	for (int i = 0; i < nLayer-1; i++) {
+    		int nUnit = this.layer[i].length;
+//    		int nNextUnit = this.layer[i+1].length;
+    		int nNextUnit = this.weight[i][0].length;
+    		double[] tmpOutput = new double[nNextUnit];
+    		for (double d : tmpOutput) {
+    			d = 0.0;
+    		}
+    		for (int j = 0; j < nUnit; j++) {
+    			for (int k = 0; k < nNextUnit; k++) {
+    				tmpOutput[k] += this.layer[i][j] * this.weight[i][j][k];
+    			}
+    		}
+    		switch (this.activationFunction) {
+    		case "sigmoid" : 
+    			for (int l = 0; l < nNextUnit; l++) {
+    				this.layer[i+1][l] = sigmoid(tmpOutput[l]);
+    			}
+    			break;
+    		case "sign" :
+    			for (int l = 0; l < nNextUnit; l++) {
+    				this.layer[i+1][l] = sign(tmpOutput[l]);
+    			}
+    			break;
+    		case "step" :
+    			for (int l = 0; l < nNextUnit; l++) {
+    				this.layer[i+1][l] = step(tmpOutput[l]);
+    			}
+    			break;
+    		default :
+    			for (int l = 0; l < nNextUnit; l++) {
+    				this.layer[i+1][l] = linear(tmpOutput[l]);
+    			}
+    			break;
+    		}
+    	}
+    }
 
     private void backPropagation(int[] target){
         //Reset delta weight
