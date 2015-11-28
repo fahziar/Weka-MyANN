@@ -2,8 +2,10 @@ package MachineLearning.MyANN;
 
 import java.util.Enumeration;
 import java.util.Vector;
+
 import weka.classifiers.Classifier;
 import weka.core.Capabilities;
+import weka.core.Instance;
 import weka.core.Instances;
 import weka.core.Option;
 import weka.core.OptionHandler;
@@ -36,7 +38,7 @@ public class MyANN extends Classifier
     // Untuk single layer
     // gradient descent batch
     // untuk delta rule tinggal panggil ini setiap iterasi pada data, panggil applyDw kemudian resetDw()
-    private void gradientDescentUpdateDw(int target){
+    private void gradientDescentUpdateDw(double target){
         for (int i=0; i<dw[0].length; i++){
             for (int j=0; j<dw[0][i].length; j++){
                 dw[0][i][j] = dw[0][i][j] + learningRate * (target - layer[1][0]) * weight[0][i][j];
@@ -145,6 +147,119 @@ public class MyANN extends Classifier
             }
         }
 
+    }
+    
+    public double getOutput() {
+    	int outputLayer = layer.length - 1;
+    	return layer[outputLayer][0];
+    }
+    
+    public void setInputLayer(Instance instance) {
+    	for (int i = 0; i < instance.numAttributes(); i++) {
+    		layer[0][i] = instance.value(i);
+    	}
+    }
+    
+    //Single layer only
+    public void perceptronTraining(Instances data) throws Exception {
+    	init(data);
+    	int NInstance = data.numInstances();
+    	int NAttribute = data.numAttributes();
+    	double[] target = new double[NInstance];
+    	double[] output = new double[NInstance];
+    	double E;
+    	int it = 0;
+    	do {
+    		E = 0.0;
+    		for (int i = 0; i < NInstance; i++) {
+    			Instance instance = data.instance(i);
+        		//initialize layer (instance attributes -> layer[0] values)
+        		setInputLayer(instance);
+    			//init weights -> asumsikan udah diinit di void init()
+        		//forward propagate
+        		forwardPropagation();
+        		//save output, save targets
+        		target[i] = instance.classValue();
+        		output[i] = getOutput();
+        		//count update weight (if o != t)
+        		if (target[i] != output[i]) {
+        			double multiplier = learningRate * (target[i] - output[i]);
+        			for (int k = 0; k < NAttribute; k++) {
+        				weight[0][k][0] += multiplier * layer[0][k];
+        			}
+        		}
+        		//weight baru (if o != t), else weight tetap
+        		//reset layer, atau gak usah reset kayaknya gapapa (?)
+        		//count cumulative E
+        		E += Math.pow(target[i] - output[i], 2) / 2;
+        	}
+    		//increment it
+    		it++;
+        	//if E = 0, stop. else reiterate
+    	} while (Double.compare(E, 0.0) != 0 && it < maxIteration);
+    	
+    }
+    
+    //Single layer only
+    public void deltaRuleBatchTraining (Instances data) throws Exception {
+    	init(data);
+    	double[] target = new double[data.numInstances()];
+    	double[] output = new double[data.numInstances()];
+    	double E;
+    	int it = 0;
+    	do {
+    		E = 0.0;
+    		double sumDeltaOutput = 0.0;
+    		for (int i = 0; i < data.numInstances(); i++) {
+        		Instance instance = data.instance(i);
+        		setInputLayer(instance);
+        		forwardPropagation();
+        		target[i] = instance.classValue();
+        		output[i] = getOutput();
+        		E += Math.pow((target[i] - output[i]), 2) / 2;
+        	}
+    		//update weight
+    		for (int k = 0; k < data.numAttributes(); k++) {
+    			double sumDelta = 0.0;
+    			for (int j = 0; j < data.numInstances(); j++) {
+    				sumDelta += data.instance(j).value(k) * (target[j] - output[j]);
+    			}
+    			weight[0][k][0] += learningRate * sumDelta;
+			}
+    		it++;
+    	} while (Double.compare(E, MSE) > 0 && it < maxIteration);
+    	
+    }
+    
+    //Single layer only
+    public void deltaRuleIncrementalTraining (Instances data) throws Exception {
+    	init(data);
+    	double[] target = new double[data.numInstances()];
+    	double[] output = new double[data.numInstances()];
+    	double E;
+    	int it = 0;
+    	do {
+    		E = 0.0;
+    		for (int i = 0; i < data.numInstances(); i++) {
+        		Instance instance = data.instance(i);
+        		setInputLayer(instance);
+        		forwardPropagation();
+        		target[i] = instance.classValue();
+        		output[i] = getOutput();
+        		//update weights
+        		gradientDescentUpdateDw(target[i]);
+        		applyDw();
+        		resetDw();
+        		E += Math.pow((target[i] - output[i]), 2) / 2;
+        	}
+    		it++;
+    	} while (Double.compare(E, MSE) > 0 && it < maxIteration);
+    	
+    }
+    
+    public void MLPTraining (Instances data) throws Exception {
+    	init(data);
+    	
     }
 
     @Override
