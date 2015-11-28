@@ -109,7 +109,7 @@ public class MyANN extends Classifier
     	}
     }
 
-    private void backPropagation(int[] target){
+    private void backPropagation(double[] target){
         //Reset delta weight
         resetDw();
 
@@ -160,6 +160,17 @@ public class MyANN extends Classifier
     	}
     }
     
+    public void printWeights() {
+    	System.out.println("Weights: ");
+    	for (int i = 0; i < layer.length - 1; i++) {
+    		for (int j = 0; j < layer[i].length; j++) {
+    			for (int k = 0; k < layer[i+1].length; k++) {
+    				System.out.print(weight[i][j][k] + " ");
+    			}
+    		}
+    	}
+    }
+    
     //Single layer only
     public void perceptronTraining(Instances data) throws Exception {
     	init(data);
@@ -189,6 +200,7 @@ public class MyANN extends Classifier
         			}
         		}
         		//weight baru (if o != t), else weight tetap
+        		printWeights();
         		//reset layer, atau gak usah reset kayaknya gapapa (?)
         		//count cumulative E
         		E += Math.pow(target[i] - output[i], 2) / 2;
@@ -226,6 +238,7 @@ public class MyANN extends Classifier
     			}
     			weight[0][k][0] += learningRate * sumDelta;
 			}
+    		printWeights();
     		it++;
     	} while (Double.compare(E, MSE) > 0 && it < maxIteration);
     	
@@ -250,6 +263,7 @@ public class MyANN extends Classifier
         		gradientDescentUpdateDw(target[i]);
         		applyDw();
         		resetDw();
+        		printWeights();
         		E += Math.pow((target[i] - output[i]), 2) / 2;
         	}
     		it++;
@@ -259,7 +273,18 @@ public class MyANN extends Classifier
     
     public void MLPTraining (Instances data) throws Exception {
     	init(data);
-    	
+    	double E;
+    	int it = 0;
+    	do {
+    		E = 0.0;
+    		for (int i = 0; i < data.numInstances(); i++) {
+    			Instance instance = data.instance(i);
+    			setInputLayer(instance);
+    			forwardPropagation();
+    			
+    		}
+    		it++;
+    	} while (Double.compare(E, MSE) > 0 && it < maxIteration);
     }
 
     @Override
