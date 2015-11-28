@@ -1,6 +1,7 @@
 package MachineLearning.MyANN;
 
 import java.util.Enumeration;
+import java.util.Random;
 import java.util.Vector;
 
 import weka.classifiers.Classifier;
@@ -20,10 +21,12 @@ public class MyANN extends Classifier
         implements OptionHandler {
     // layer[nomer layer][nomer neuron] = nilai pada neuron tsb
     private double [][] layer;
-    // weight[nomer layer][nomer neuron  pada layer][nomer neuron tujuan] = nilai pada neuron tsb
+    // weight[nomer layer][nomer neuron  pada layer][nomer neuron tujuan]
+    // = nilai pada neuron tsb
     private double [][][] weight;
     // delta weight
-    // dw[nomer layer][nomer neuron pada layer][nomer neuron tujuan] = delta weight
+    // dw[nomer layer][nomer neuron pada layer][nomer neuron tujuan]
+    // = delta weight
     private double [][][] dw;
 
     private String hiddenLayers = "n";
@@ -33,15 +36,18 @@ public class MyANN extends Classifier
     private double momentum = 1.0;
     private int maxIteration = 100;
     private double MSE = 10.0;
-    private boolean mlp;
+    private boolean mlp = false;
+    private String weightOption = "n";
 
     // Untuk single layer
     // gradient descent batch
-    // untuk delta rule tinggal panggil ini setiap iterasi pada data, panggil applyDw kemudian resetDw()
+    // untuk delta rule tinggal panggil ini setiap iterasi pada data,
+    // panggil applyDw kemudian resetDw()
     private void gradientDescentUpdateDw(double target){
         for (int i=0; i<dw[0].length; i++){
             for (int j=0; j<dw[0][i].length; j++){
-                dw[0][i][j] = dw[0][i][j] + learningRate * (target - layer[1][0]) * weight[0][i][j];
+                dw[0][i][j] = dw[0][i][j] + learningRate
+                        * (target - layer[1][0]) * layer[0][i];
             }
         }
     }
@@ -67,7 +73,8 @@ public class MyANN extends Classifier
     }
     
     /**
-     * Sebelum memanggil prosedur ini, pastikan layer dan weight sudah terinisialisasi
+     * Sebelum memanggil prosedur ini, pastikan layer dan weight 
+     * sudah terinisialisasi
      */
     private void forwardPropagation () {
     	int nLayer = this.layer.length;
@@ -81,7 +88,8 @@ public class MyANN extends Classifier
     		}
     		for (int j = 0; j < nUnit; j++) {
     			for (int k = 0; k < nNextUnit; k++) {
-    				tmpOutput[k] += this.layer[i][j] * this.weight[i][j][k];
+    				tmpOutput[k] += this.layer[i][j]
+                                        * this.weight[i][j][k];
     			}
     		}
     		switch (this.activationFunction) {
@@ -109,7 +117,7 @@ public class MyANN extends Classifier
     	}
     }
 
-    private void backPropagation(double[] target){
+    private double backPropagation(double[] target){
         //Reset delta weight
         resetDw();
 
@@ -121,10 +129,12 @@ public class MyANN extends Classifier
 
         //Output layer adalah layer terluar
         //hitung error untuk output layer
+        double E = 0.0;
         for (int i=0; i<layer[layer.length - 1].length; i++){
             double o = layer[layer.length - 1][i];
             double t = target[i];
             deltas[layer.length - 1][i] = o * (1 - o) * (t - o);
+            E += deltas[layer.length - 1][i];
         }
 
         //hitung error untuk hidden unit
@@ -142,11 +152,12 @@ public class MyANN extends Classifier
         for (int i=0; i<weight.length; i++){
             for (int j=0; j<weight[i].length; j++){
                 for (int k=0; k<weight[i][j].length; k++){
-                    dw[i][j][k] = learningRate * layer[i][j] * deltas[i][j] + momentum*dw[i][j][k];
+                    dw[i][j][k] = learningRate * layer[i][j] * deltas[i][j]
+                            + momentum*dw[i][j][k];
                 }
             }
         }
-
+        return E;
     }
     
     public double getOutput() {
@@ -184,7 +195,7 @@ public class MyANN extends Classifier
     		E = 0.0;
     		for (int i = 0; i < NInstance; i++) {
     			Instance instance = data.instance(i);
-        		//initialize layer (instance attributes -> layer[0] values)
+        		//initialize layer
         		setInputLayer(instance);
     			//init weights -> asumsikan udah diinit di void init()
         		//forward propagate
@@ -192,17 +203,11 @@ public class MyANN extends Classifier
         		//save output, save targets
         		target[i] = instance.classValue();
         		output[i] = getOutput();
-        		//count update weight (if o != t)
-        		if (target[i] != output[i]) {
-        			double multiplier = learningRate * (target[i] - output[i]);
-        			for (int k = 0; k < NAttribute; k++) {
-        				weight[0][k][0] += multiplier * layer[0][k];
-        			}
-        		}
-        		//weight baru (if o != t), else weight tetap
-        		printWeights();
-        		//reset layer, atau gak usah reset kayaknya gapapa (?)
-        		//count cumulative E
+                gradientDescentUpdateDw(target[i]);
+        		applyDw();
+                resetDw();
+                printWeights();
+                //count cumulative E
         		E += Math.pow(target[i] - output[i], 2) / 2;
         	}
     		//increment it
@@ -221,7 +226,6 @@ public class MyANN extends Classifier
     	int it = 0;
     	do {
     		E = 0.0;
-    		double sumDeltaOutput = 0.0;
     		for (int i = 0; i < data.numInstances(); i++) {
         		Instance instance = data.instance(i);
         		setInputLayer(instance);
@@ -234,7 +238,8 @@ public class MyANN extends Classifier
     		for (int k = 0; k < data.numAttributes(); k++) {
     			double sumDelta = 0.0;
     			for (int j = 0; j < data.numInstances(); j++) {
-    				sumDelta += data.instance(j).value(k) * (target[j] - output[j]);
+    				sumDelta += data.instance(j).value(k)
+                                        * (target[j] - output[j]);
     			}
     			weight[0][k][0] += learningRate * sumDelta;
 			}
@@ -273,16 +278,22 @@ public class MyANN extends Classifier
     
     public void MLPTraining (Instances data) throws Exception {
     	init(data);
+    	double[] target = new double[data.numInstances()];
+    	double[] output = new double[data.numInstances()];
     	double E;
     	int it = 0;
     	do {
     		E = 0.0;
     		for (int i = 0; i < data.numInstances(); i++) {
-    			Instance instance = data.instance(i);
-    			setInputLayer(instance);
-    			forwardPropagation();
-    			
-    		}
+        		Instance instance = data.instance(i);
+        		setInputLayer(instance);
+        		forwardPropagation();
+        		target[i] = instance.classValue();
+        		output[i] = getOutput();
+        	}
+            E = backPropagation(target);
+    		applyDw();
+            resetDw();
     		it++;
     	} while (Double.compare(E, MSE) > 0 && it < maxIteration);
     }
@@ -315,10 +326,61 @@ public class MyANN extends Classifier
     public void buildClassifier(Instances data) throws Exception {
         getCapabilities().testWithFail(data);
         init(data);
+        
+    	int NInstance = data.numInstances();
+    	double[] target = new double[NInstance];
+    	double[] output = new double[NInstance];
+    	double E;
+        boolean run = true;
+    	int it = 0;
+    	do {
+            E = 0.0;
+            for (int i = 0; i < NInstance; i++) {
+                Instance instance = data.instance(i);
+                //initialize layer (instance attributes -> layer[0] values)
+                setInputLayer(instance);
+                //forward propagate
+                forwardPropagation();
+                //save output, save targets
+                target[i] = instance.classValue();
+                output[i] = getOutput();
+                if (!mlp){
+                    if (!learningRule.equals("batch")){
+                        gradientDescentUpdateDw(target[i]);
+                        applyDw();
+                        resetDw();
+                    }
+                    //count cumulative E
+                    E += Math.pow(target[i] - output[i], 2) / 2;
+                }
+            }
+            if (mlp){
+                E = backPropagation(target);
+    		applyDw();
+                resetDw();
+            }
+            if (learningRule.equals("batch")) {
+                for (int k = 0; k < data.numAttributes(); k++) {
+                    double sumDelta = 0.0;
+                    for (int j = 0; j < data.numInstances(); j++) {
+                        sumDelta += data.instance(j).value(k)
+                                * (target[j] - output[j]);
+                    }
+                    weight[0][k][0] += learningRate * sumDelta;
+                }
+            }
+            if (learningRule.equals("ptr")) {
+                run = (Double.compare(E, 0.0) != 0); 
+            } else {
+                run = (Double.compare(E, MSE) > 0);
+            }
+            //increment it
+            it++;
+            //if E = 0, stop. else reiterate
+    	} while (run && it < maxIteration);
     }
     
     private void init(Instances data) throws Exception {
-        mlp = false;
         int[] layers = new int[2];
         layers[1] = data.numClasses();
         
@@ -350,11 +412,24 @@ public class MyANN extends Classifier
                 dw[i] = new double[layers[i]][layers[i+1]];
             }
         }
+        
+        //initialize weight and value in input layer
+        double w = 0;
+        if (weightOption.equals("n")){
+            //random weight
+            Random r = new Random();
+            w = 0 + (1 - 0) * r.nextDouble();
+        } else {
+            w = Integer.parseInt(weightOption);
+        }
+        for (int i=0; i<layer[0].length; i++){
+            weight[0][i][0] = w;
+        }
     }
     
     @Override
     public Enumeration<Option> listOptions() {
-        Vector newVector = new Vector(7);
+        Vector newVector = new Vector(8);
 
         newVector.addElement(new Option(
                   "\tLearning Rate for the backpropagation algorithm.\n"
@@ -380,7 +455,7 @@ public class MyANN extends Classifier
                   "H", 1, "-H <comma seperated numbers for nodes on each layer>"));
         newVector.addElement(new Option(
                   "\tThe learning rule for single perceptron.\n"
-                  + "\t(Value should be 'ptr', 'batch', 'delta', \n"
+                  + "\t(Value should be 'ptr', 'batch', 'incremental', \n"
                   + "\tdefault 'ptr') \n",
                   "R", 1, "-R <learning rule>"));
         newVector.addElement(new Option(
@@ -388,6 +463,11 @@ public class MyANN extends Classifier
                   + "\t(Value should be 'sigmoid', 'sign', 'step', 'linear', \n"
                   + "\tdefault 'linear') \n",
                   "F", 1, "-F <activation function>"));
+        newVector.addElement(new Option(
+                  "\tThe weight initialization for network.\n"
+                  + "\t(Value should be double or 'n',\n"
+                  + "\tdefault 'n' = random) \n",
+                  "W", 1, "-W <weight>"));
 
         return newVector.elements();
     }
@@ -422,13 +502,17 @@ public class MyANN extends Classifier
         if (activationFunctionString.length() != 0) {
           activationFunction = activationFunctionString;
         }
+        String weightString = Utils.getOption('W', options);
+        if (weightString.length() != 0) {
+          weightOption = weightString;
+        }
 
         Utils.checkForRemainingOptions(options);
     }
     
     @Override
     public String[] getOptions() {
-        String[] options = new String[14];
+        String[] options = new String[16];
         int current = 0;
         options[current++] = "-L"; options[current++] = "" + learningRate; 
         options[current++] = "-M"; options[current++] = "" + momentum;
@@ -437,6 +521,7 @@ public class MyANN extends Classifier
         options[current++] = "-H"; options[current++] = hiddenLayers;
         options[current++] = "-R"; options[current++] = learningRule;
         options[current++] = "-F"; options[current++] = activationFunction;
+        options[current++] = "-W"; options[current++] = weightOption;
 
         while (current < options.length) {
           options[current++] = "";
