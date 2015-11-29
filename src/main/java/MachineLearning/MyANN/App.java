@@ -161,6 +161,7 @@ public class App {
                 myweka.loadModel(cmdString);
                 
                 System.out.println("Classify unlabeled data? (y/n): ");
+                cmdString = input.nextLine();
                 if (!cmdString.equals("y"))
                     break;
                 
