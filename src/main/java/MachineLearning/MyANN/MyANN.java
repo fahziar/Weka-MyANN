@@ -65,7 +65,7 @@ public class MyANN extends Classifier
                 output[i] = getOutput();
                 if (!mlp){
                     if (!learningRule.equals("batch")){
-                        gradientDescentUpdateDw(target[i]);
+                        gradientDescentUpdateDw(target[i], instance.numClasses());
                         applyDw();
                         resetDw();
                     }
@@ -160,11 +160,19 @@ public class MyANN extends Classifier
     // gradient descent batch
     // untuk delta rule tinggal panggil ini setiap iterasi pada data,
     // panggil applyDw kemudian resetDw()
-    private void gradientDescentUpdateDw(double target){
+    private void gradientDescentUpdateDw(double target, int numClasses){
+        double[] targetArray = new double[numClasses];
+        for (int i=0; i<numClasses; i++){
+            if (i != target){
+                targetArray[i] = 0.0;
+            } else {
+                targetArray[i] = 1.0;
+            }
+        }
         for (int i=0; i<dw[0].length; i++){
             for (int j=0; j<dw[0][i].length; j++){
                 dw[0][i][j] = dw[0][i][j] + learningRate
-                        * (target - layer[1][0]) * layer[0][i];
+                        * (targetArray[j] - layer[1][j]) * layer[0][i];
             }
         }
     }
@@ -283,7 +291,7 @@ public class MyANN extends Classifier
     }
     
     private void setInputLayer(Instance instance) {
-        layer[0][1] = 1.0;
+        layer[0][0] = 1.0;
     	for (int i = 1; i < instance.numAttributes(); i++) {
     		layer[0][i] = instance.value(i);
     	}
