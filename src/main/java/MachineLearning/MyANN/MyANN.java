@@ -13,6 +13,7 @@ import weka.core.OptionHandler;
 import weka.core.Utils;
 import weka.filters.Filter;
 import weka.filters.unsupervised.attribute.NominalToBinary;
+import weka.filters.unsupervised.attribute.Normalize;
 
 /**
  * Created by fahziar on 23/11/2015.
@@ -103,7 +104,9 @@ public class MyANN extends Classifier
         int[] layers = new int[2];
         layers[1] = data.numClasses();
         
-        //convert any nominal to binary
+        Normalize filter1 = new Normalize();
+        filter1.setInputFormat(data);
+        data = Filter.useFilter(data, filter1);
         NominalToBinary filter = new NominalToBinary();
         filter.setInputFormat(data);
         data = Filter.useFilter(data, filter);

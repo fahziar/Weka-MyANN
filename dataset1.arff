@@ -1,0 +1,11 @@
+@relation weather
+
+@attribute x1 numeric
+@attribute x2 numeric
+@attribute x3 numeric
+@attribute target numeric
+
+@data
+1,0,1,-1
+0,-1,-1,1
+-1,-0.5,-1,1
