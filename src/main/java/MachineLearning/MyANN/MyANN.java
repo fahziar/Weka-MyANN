@@ -1,5 +1,6 @@
 package MachineLearning.MyANN;
 
+import java.io.Serializable;
 import java.util.Enumeration;
 import java.util.Random;
 import java.util.Vector;
@@ -19,7 +20,7 @@ import weka.filters.unsupervised.attribute.Normalize;
  * Created by fahziar on 23/11/2015.
  */
 public class MyANN extends Classifier
-        implements OptionHandler {
+        implements OptionHandler, Serializable {
     // layer[nomer layer][nomer neuron] = nilai pada neuron tsb
     private double [][] layer;
     // weight[nomer layer][nomer neuron  pada layer][nomer neuron tujuan]
@@ -30,6 +31,10 @@ public class MyANN extends Classifier
     // = delta weight
     private double [][][] dw;
 
+    //Filter
+    private NominalToBinary nominalToBinaryFilter;
+    private Normalize normalizeFilter;
+
     private String hiddenLayers = "n";
     private String learningRule = "ptr";
     private String activationFunction = "linear";
@@ -39,10 +44,19 @@ public class MyANN extends Classifier
     private double MSE = 0.01;
     private boolean mlp = false;
     private String weightOption = "n";
+
     
     @Override
-    public void buildClassifier(Instances data) throws Exception {
-        getCapabilities().testWithFail(data);
+    public void buildClassifier(Instances instances) throws Exception {
+        getCapabilities().testWithFail(instances);
+
+        normalizeFilter = new Normalize();
+        normalizeFilter.setInputFormat(instances);
+        Instances data = Filter.useFilter(instances, normalizeFilter);
+        nominalToBinaryFilter = new NominalToBinary();
+        nominalToBinaryFilter.setInputFormat(data);
+        data = Filter.useFilter(data, nominalToBinaryFilter);
+
         init(data);
         
     	int NInstance = data.numInstances();
@@ -103,13 +117,7 @@ public class MyANN extends Classifier
     private void init(Instances data) throws Exception {
         int[] layers = new int[2];
         layers[1] = data.numClasses();
-        
-        Normalize filter1 = new Normalize();
-        filter1.setInputFormat(data);
-        data = Filter.useFilter(data, filter1);
-        NominalToBinary filter = new NominalToBinary();
-        filter.setInputFormat(data);
-        data = Filter.useFilter(data, filter);
+
         layers[0] = data.numAttributes();
         
         if (!hiddenLayers.equals("n")){ //multi layer perceptron
@@ -292,22 +300,36 @@ public class MyANN extends Classifier
     
     private void setInputLayer(Instance instance) {
         layer[0][0] = 1.0;
-    	for (int i = 1; i < instance.numAttributes(); i++) {
-    		layer[0][i] = instance.value(i);
+    	for (int i = 0; i < instance.numAttributes() - 1; i++) {
+    		layer[0][i + 1] = instance.value(i);
     	}
     }
     
     @Override
-    public double classifyInstance(Instance instance) {
-        setInputLayer(instance);        
-        forwardPropagation();
-        if (instance.classAttribute().isNumeric()){
-            return getOutput();
-        } else {
-            int outputLayer = layer.length - 1;
-            int idxMax = Utils.maxIndex(layer[outputLayer]);
-            return idxMax;
+    public double classifyInstance(Instance data) {
+        Instance instance;
+
+        try {
+            normalizeFilter.input(data);
+            instance = normalizeFilter.output();
+            nominalToBinaryFilter.input(instance);
+            instance = nominalToBinaryFilter.output();
+
+            setInputLayer(instance);
+            forwardPropagation();
+            if (instance.classAttribute().isNumeric()){
+                return getOutput();
+            } else {
+                int outputLayer = layer.length - 1;
+                int idxMax = Utils.maxIndex(layer[outputLayer]);
+                return idxMax;
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
+
+        return 0.0;
     }
     
     private void printWeights() {
