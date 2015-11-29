@@ -163,9 +163,11 @@ public class MyANN extends Classifier
         } else {
             w = Double.parseDouble(weightOption);
         }
-        for (int i=0; i<layer[0].length; i++){
-            for (int j=0; j<weight[0][i].length; j++){
-                weight[0][i][j] = w;
+        for (int i=0; i<weight.length; i++){
+            for (int j=0; j<weight[i].length; j++){
+                for (int k=0; k<weight[i][j].length; k++){
+                    weight[i][j][k] = w;
+                }
             }
         }
     }
