@@ -32,12 +32,119 @@ public class MyANN extends Classifier
     private String hiddenLayers = "n";
     private String learningRule = "ptr";
     private String activationFunction = "linear";
-    private double learningRate = 1.0;
-    private double momentum = 1.0;
-    private int maxIteration = 100;
-    private double MSE = 10.0;
+    private double learningRate = 0.2;
+    private double momentum = 0.3;
+    private int maxIteration = 500;
+    private double MSE = 0.01;
     private boolean mlp = false;
     private String weightOption = "n";
+    
+    @Override
+    public void buildClassifier(Instances data) throws Exception {
+        getCapabilities().testWithFail(data);
+        init(data);
+        
+    	int NInstance = data.numInstances();
+    	double[] target = new double[NInstance];
+    	double[] output = new double[NInstance];
+    	double E;
+        boolean run = true;
+    	int it = 0;
+    	do {
+            E = 0.0;
+            for (int i = 0; i < NInstance; i++) {
+                Instance instance = data.instance(i);
+                //initialize layer (instance attributes -> layer[0] values)
+                setInputLayer(instance);
+                //forward propagate
+                forwardPropagation();
+                //save output, save targets
+                target[i] = instance.classValue();
+                output[i] = getOutput();
+                if (!mlp){
+                    if (!learningRule.equals("batch")){
+                        gradientDescentUpdateDw(target[i]);
+                        applyDw();
+                        resetDw();
+                    }
+                    //count cumulative E
+                    E += Math.pow(target[i] - output[i], 2) / 2;
+                }
+            }
+            if (mlp){
+                E = backPropagation(target);
+    		applyDw();
+                resetDw();
+            }
+            if (learningRule.equals("batch")) {
+                for (int k = 0; k < data.numAttributes(); k++) {
+                    double sumDelta = 0.0;
+                    for (int j = 0; j < data.numInstances(); j++) {
+                        sumDelta += data.instance(j).value(k)
+                                * (target[j] - output[j]);
+                    }
+                    weight[0][k][0] += learningRate * sumDelta;
+                }
+            }
+            if (learningRule.equals("ptr")) {
+                run = (Double.compare(E, 0.0) != 0); 
+            } else {
+                run = (Double.compare(E, MSE) > 0);
+            }
+            it++;
+    	} while (run && it < maxIteration);
+    }
+    
+    private void init(Instances data) throws Exception {
+        int[] layers = new int[2];
+        layers[1] = data.numClasses();
+        
+        //convert any nominal to binary
+        NominalToBinary filter = new NominalToBinary();
+        filter.setInputFormat(data);
+        data = Filter.useFilter(data, filter);
+        layers[0] = data.numAttributes();
+        
+        if (!hiddenLayers.equals("n")){ //multi layer perceptron
+            mlp = true;
+            String[] splits = hiddenLayers.split(",");
+            layers = new int[splits.length+layers.length];
+            layers[0] = data.numAttributes();
+            layers[layers.length-1] = data.numClasses();
+            for (int i=0; i<splits.length; i++) {
+                layers[i+1] = Integer.parseInt(splits[i]);
+            }
+        }
+        
+        //initialize layer, weight, and dw
+        layer = new double [layers.length][];
+        weight = new double [layers.length-1][][];
+        dw = new double [layers.length-1][][];
+        for (int i=0; i<layers.length; i++) {
+            layer[i] = new double[layers[i]];
+            if (i<layers.length-1) {
+                weight[i] = new double[layers[i]][];
+                dw[i] = new double[layers[i]][];
+                for (int j=0; j<layers[i]; j++) {
+                    weight[i][j] = new double[layers[i+1]];
+                    dw[i][j] = new double[layers[i+1]];
+                }
+            }
+        }
+        
+        //initialize weight and value in input layer
+        double w = 0;
+        if (weightOption.equals("n")){
+            //random weight
+            Random r = new Random();
+            w = 0 + (1 - 0) * r.nextDouble();
+        } else {
+            w = Integer.parseInt(weightOption);
+        }
+        for (int i=0; i<layer[0].length; i++){
+            weight[0][i][0] = w;
+        }
+    }
 
     // Untuk single layer
     // gradient descent batch
@@ -80,7 +187,6 @@ public class MyANN extends Classifier
     	int nLayer = this.layer.length;
     	for (int i = 0; i < nLayer-1; i++) {
     		int nUnit = this.layer[i].length;
-//    		int nNextUnit = this.layer[i+1].length;
     		int nNextUnit = this.weight[i][0].length;
     		double[] tmpOutput = new double[nNextUnit];
     		for (double d : tmpOutput) {
@@ -162,7 +268,8 @@ public class MyANN extends Classifier
     
     public double getOutput() {
     	int outputLayer = layer.length - 1;
-    	return layer[outputLayer][0];
+        int idxMax = Utils.maxIndex(layer[outputLayer]);
+    	return layer[outputLayer][idxMax];
     }
     
     public void setInputLayer(Instance instance) {
@@ -171,117 +278,10 @@ public class MyANN extends Classifier
     	}
     }
     
-    //Single layer only
-    public void perceptronTraining(Instances data) throws Exception {
-    	init(data);
-    	int NInstance = data.numInstances();
-    	int NAttribute = data.numAttributes();
-    	double[] target = new double[NInstance];
-    	double[] output = new double[NInstance];
-    	double E;
-    	int it = 0;
-    	do {
-    		E = 0.0;
-    		for (int i = 0; i < NInstance; i++) {
-    			Instance instance = data.instance(i);
-        		//initialize layer
-        		setInputLayer(instance);
-    			//init weights -> asumsikan udah diinit di void init()
-        		//forward propagate
-        		forwardPropagation();
-        		//save output, save targets
-        		target[i] = instance.classValue();
-        		output[i] = getOutput();
-                        gradientDescentUpdateDw(target[i]);
-        		applyDw();
-                        resetDw();
-                        //count cumulative E
-        		E += Math.pow(target[i] - output[i], 2) / 2;
-        	}
-    		//increment it
-    		it++;
-        	//if E = 0, stop. else reiterate
-    	} while (Double.compare(E, 0.0) != 0 && it < maxIteration);
-    	
-    }
-    
-    //Single layer only
-    public void deltaRuleBatchTraining (Instances data) throws Exception {
-    	init(data);
-    	double[] target = new double[data.numInstances()];
-    	double[] output = new double[data.numInstances()];
-    	double E;
-    	int it = 0;
-    	do {
-    		E = 0.0;
-    		for (int i = 0; i < data.numInstances(); i++) {
-        		Instance instance = data.instance(i);
-        		setInputLayer(instance);
-        		forwardPropagation();
-        		target[i] = instance.classValue();
-        		output[i] = getOutput();
-        		E += Math.pow((target[i] - output[i]), 2) / 2;
-        	}
-    		//update weight
-    		for (int k = 0; k < data.numAttributes(); k++) {
-    			double sumDelta = 0.0;
-    			for (int j = 0; j < data.numInstances(); j++) {
-    				sumDelta += data.instance(j).value(k)
-                                        * (target[j] - output[j]);
-    			}
-    			weight[0][k][0] += learningRate * sumDelta;
-		}
-    		it++;
-    	} while (Double.compare(E, MSE) > 0 && it < maxIteration);
-    	
-    }
-    
-    //Single layer only
-    public void deltaRuleIncrementalTraining (Instances data) throws Exception {
-    	init(data);
-    	double[] target = new double[data.numInstances()];
-    	double[] output = new double[data.numInstances()];
-    	double E;
-    	int it = 0;
-    	do {
-    		E = 0.0;
-    		for (int i = 0; i < data.numInstances(); i++) {
-        		Instance instance = data.instance(i);
-        		setInputLayer(instance);
-        		forwardPropagation();
-        		target[i] = instance.classValue();
-        		output[i] = getOutput();
-        		//update weights
-        		gradientDescentUpdateDw(target[i]);
-        		applyDw();
-        		resetDw();
-        		E += Math.pow((target[i] - output[i]), 2) / 2;
-        	}
-    		it++;
-    	} while (Double.compare(E, MSE) > 0 && it < maxIteration);
-    	
-    }
-    
-    public void MLPTraining (Instances data) throws Exception {
-    	init(data);
-    	double[] target = new double[data.numInstances()];
-    	double[] output = new double[data.numInstances()];
-    	double E;
-    	int it = 0;
-    	do {
-    		E = 0.0;
-    		for (int i = 0; i < data.numInstances(); i++) {
-        		Instance instance = data.instance(i);
-        		setInputLayer(instance);
-        		forwardPropagation();
-        		target[i] = instance.classValue();
-        		output[i] = getOutput();
-        	}
-                E = backPropagation(target);
-    		applyDw();
-                resetDw();
-    		it++;
-    	} while (Double.compare(E, MSE) > 0 && it < maxIteration);
+    public double classifyInstance(Instance instance) {
+        setInputLayer(instance);        
+        forwardPropagation();
+        return getOutput();
     }
 
     @Override
@@ -305,112 +305,6 @@ public class MyANN extends Classifier
                 {1, 0, -1, -1},
                 {1, -1, -0.5, -1}
         };
-    }
-
-
-    @Override
-    public void buildClassifier(Instances data) throws Exception {
-        getCapabilities().testWithFail(data);
-        init(data);
-        
-    	int NInstance = data.numInstances();
-    	double[] target = new double[NInstance];
-    	double[] output = new double[NInstance];
-    	double E;
-        boolean run = true;
-    	int it = 0;
-    	do {
-            E = 0.0;
-            for (int i = 0; i < NInstance; i++) {
-                Instance instance = data.instance(i);
-                //initialize layer (instance attributes -> layer[0] values)
-                setInputLayer(instance);
-                //forward propagate
-                forwardPropagation();
-                //save output, save targets
-                target[i] = instance.classValue();
-                output[i] = getOutput();
-                if (!mlp){
-                    if (!learningRule.equals("batch")){
-                        gradientDescentUpdateDw(target[i]);
-                        applyDw();
-                        resetDw();
-                    }
-                    //count cumulative E
-                    E += Math.pow(target[i] - output[i], 2) / 2;
-                }
-            }
-            if (mlp){
-                E = backPropagation(target);
-    		applyDw();
-                resetDw();
-            }
-            if (learningRule.equals("batch")) {
-                for (int k = 0; k < data.numAttributes(); k++) {
-                    double sumDelta = 0.0;
-                    for (int j = 0; j < data.numInstances(); j++) {
-                        sumDelta += data.instance(j).value(k)
-                                * (target[j] - output[j]);
-                    }
-                    weight[0][k][0] += learningRate * sumDelta;
-                }
-            }
-            if (learningRule.equals("ptr")) {
-                run = (Double.compare(E, 0.0) != 0); 
-            } else {
-                run = (Double.compare(E, MSE) > 0);
-            }
-            //increment it
-            it++;
-            //if E = 0, stop. else reiterate
-    	} while (run && it < maxIteration);
-    }
-    
-    private void init(Instances data) throws Exception {
-        int[] layers = new int[2];
-        layers[1] = data.numClasses();
-        
-        //convert any nominal to binary
-        NominalToBinary filter = new NominalToBinary();
-        filter.setInputFormat(data);
-        data = Filter.useFilter(data, filter);
-        layers[0] = data.numAttributes();
-        
-        if (!hiddenLayers.equals("n")){ //multi layer perceptron
-            mlp = true;
-            String[] splits = hiddenLayers.split(",");
-            layers = new int[splits.length+layers.length];
-            layers[0] = data.numAttributes();
-            layers[layers.length-1] = data.numClasses();
-            for (int i=0; i<splits.length; i++) {
-                layers[i+1] = Integer.parseInt(splits[i]);
-            }
-        }
-        
-        //initialize layer, weight, and dw
-        layer = new double [layers.length][];
-        weight = new double [layers.length][][];
-        dw = new double [layers.length][][];
-        for (int i=0; i<layers.length; i++) {
-            layer[i] = new double[layers[i]];
-            if (i<layers.length-1) {
-                weight[i] = new double[layers[i]][layers[i+1]];
-                dw[i] = new double[layers[i]][layers[i+1]];
-            }
-        }
-        
-        //initialize weight and value in input layer
-        double w = 0;
-        if (weightOption.equals("n")){
-            //random weight
-            Random r = new Random();
-            w = 0 + (1 - 0) * r.nextDouble();
-        } else {
-            w = Integer.parseInt(weightOption);
-        }
-        for (int i=0; i<layer[0].length; i++){
-            weight[0][i][0] = w;
-        }
     }
     
     @Override
