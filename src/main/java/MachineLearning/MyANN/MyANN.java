@@ -146,7 +146,7 @@ public class MyANN extends Classifier
             Random r = new Random();
             w = 0 + (1 - 0) * r.nextDouble();
         } else {
-            w = Integer.parseInt(weightOption);
+            w = Double.parseDouble(weightOption);
         }
         for (int i=0; i<layer[0].length; i++){
             for (int j=0; j<weight[0][i].length; j++){
