@@ -293,7 +293,9 @@ public class MyANN extends Classifier
     public double classifyInstance(Instance instance) {
         setInputLayer(instance);        
         forwardPropagation();
-        return getOutput();
+    	int outputLayer = layer.length - 1;
+        int idxMax = Utils.maxIndex(layer[outputLayer]);
+        return idxMax;
     }
     
     private void printWeights() {

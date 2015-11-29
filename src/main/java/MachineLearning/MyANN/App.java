@@ -125,6 +125,7 @@ public class App {
                     cmdString = input.nextLine();
                     myweka.model.setOptions(cmdString.split("\\s+"));
                 }
+                Thread.sleep(3000);
                 System.out.println("\nParameters are:");
                 String[] options = myweka.model.getOptions();
                 for (String option: options)
