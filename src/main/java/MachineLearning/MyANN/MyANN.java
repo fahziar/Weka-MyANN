@@ -125,10 +125,10 @@ public class MyANN extends Classifier
             activationFunction = "sigmoid";
             String[] splits = hiddenLayers.split(",");
             layers = new int[splits.length+layers.length];
-            layers[0] = data.numAttributes() + 1;
+            layers[0] = data.numAttributes();
             layers[layers.length-1] = data.numClasses();
             for (int i=0; i<splits.length; i++) {
-                layers[i+1] = Integer.parseInt(splits[i]);
+                layers[i+1] = Integer.parseInt(splits[i]) + 1;
             }
         }
         
@@ -138,6 +138,12 @@ public class MyANN extends Classifier
         dw = new double [layers.length-1][][];
         for (int i=0; i<layers.length; i++) {
             layer[i] = new double[layers[i]];
+
+            //Bias untuk hidden layer
+            if (i != 0){
+                layer[i][layers[i] - 1] = 1.0;
+            }
+
             if (i<layers.length-1) {
                 weight[i] = new double[layers[i]][];
                 dw[i] = new double[layers[i]][];
@@ -218,6 +224,11 @@ public class MyANN extends Classifier
     		for (double d : tmpOutput) {
     			d = 0.0;
     		}
+            //Must not count hidden unit
+            if (i < nLayer - 2){
+                nNextUnit = nNextUnit - 1;
+            }
+
     		for (int j = 0; j < nUnit; j++) {
     			for (int k = 0; k < nNextUnit; k++) {
     				tmpOutput[k] += this.layer[i][j]
