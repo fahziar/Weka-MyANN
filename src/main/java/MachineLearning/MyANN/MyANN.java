@@ -52,6 +52,7 @@ public class MyANN extends Classifier
     	int it = 0;
     	do {
             E = 0.0;
+            printWeights();
             for (int i = 0; i < NInstance; i++) {
                 Instance instance = data.instance(i);
                 //initialize layer (instance attributes -> layer[0] values)
@@ -93,7 +94,7 @@ public class MyANN extends Classifier
             } else {
                 run = (Double.compare(E, MSE) > 0);
             }
-            printWeights();
+            System.out.println("\nError: " + E);
             it++;
     	} while (run && it < maxIteration);
     }
@@ -112,7 +113,7 @@ public class MyANN extends Classifier
             mlp = true;
             String[] splits = hiddenLayers.split(",");
             layers = new int[splits.length+layers.length];
-            layers[0] = data.numAttributes();
+            layers[0] = data.numAttributes() + 1;
             layers[layers.length-1] = data.numClasses();
             for (int i=0; i<splits.length; i++) {
                 layers[i+1] = Integer.parseInt(splits[i]);
@@ -145,7 +146,9 @@ public class MyANN extends Classifier
             w = Integer.parseInt(weightOption);
         }
         for (int i=0; i<layer[0].length; i++){
-            weight[0][i][0] = w;
+            for (int j=0; j<weight[0][i].length; j++){
+                weight[0][i][j] = w;
+            }
         }
     }
 
@@ -269,25 +272,27 @@ public class MyANN extends Classifier
         return E;
     }
     
-    public double getOutput() {
+    private double getOutput() {
     	int outputLayer = layer.length - 1;
         int idxMax = Utils.maxIndex(layer[outputLayer]);
     	return layer[outputLayer][idxMax];
     }
     
-    public void setInputLayer(Instance instance) {
-    	for (int i = 0; i < instance.numAttributes(); i++) {
+    private void setInputLayer(Instance instance) {
+        layer[0][1] = 1.0;
+    	for (int i = 1; i < instance.numAttributes(); i++) {
     		layer[0][i] = instance.value(i);
     	}
     }
     
+    @Override
     public double classifyInstance(Instance instance) {
         setInputLayer(instance);        
         forwardPropagation();
         return getOutput();
     }
     
-    public void printWeights() {
+    private void printWeights() {
     	System.out.println("Weights: ");
     	for (int i = 0; i < layer.length - 1; i++) {
     		for (int j = 0; j < layer[i].length; j++) {
