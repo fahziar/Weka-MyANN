@@ -83,7 +83,9 @@ public class MyANN extends Classifier
                         sumDelta += data.instance(j).value(k)
                                 * (target[j] - output[j]);
                     }
-                    weight[0][k][0] += learningRate * sumDelta;
+                    for (int l=0; l<weight[0][k].length; l++){
+                        weight[0][k][l] += learningRate * sumDelta;
+                    }
                 }
             }
             if (learningRule.equals("ptr")) {
@@ -91,6 +93,7 @@ public class MyANN extends Classifier
             } else {
                 run = (Double.compare(E, MSE) > 0);
             }
+            printWeights();
             it++;
     	} while (run && it < maxIteration);
     }
@@ -282,6 +285,17 @@ public class MyANN extends Classifier
         setInputLayer(instance);        
         forwardPropagation();
         return getOutput();
+    }
+    
+    public void printWeights() {
+    	System.out.println("Weights: ");
+    	for (int i = 0; i < layer.length - 1; i++) {
+    		for (int j = 0; j < layer[i].length; j++) {
+    			for (int k = 0; k < layer[i+1].length; k++) {
+    				System.out.print(weight[i][j][k] + " ");
+    			}
+    		}
+    	}
     }
 
     @Override
