@@ -68,6 +68,7 @@ public class MyANN extends Classifier
     	do {
             E = 0.0;
             printWeights();
+            resetDw();
             for (int i = 0; i < NInstance; i++) {
                 Instance instance = data.instance(i);
                 //initialize layer (instance attributes -> layer[0] values)
@@ -86,12 +87,12 @@ public class MyANN extends Classifier
                     //count cumulative E
                     E += Math.pow(target[i] - output[i], 2) / 2;
                 }
+                if (mlp){
+                    E = backPropagation(target[i]);
+                    applyDw();
+                }
             }
-            if (mlp){
-                E = backPropagation(target);
-    		applyDw();
-                resetDw();
-            }
+
             if (learningRule.equals("batch")) {
                 for (int k = 0; k < data.numAttributes(); k++) {
                     double sumDelta = 0.0;
@@ -147,9 +148,16 @@ public class MyANN extends Classifier
             if (i<layers.length-1) {
                 weight[i] = new double[layers[i]][];
                 dw[i] = new double[layers[i]][];
+                int nbConnection;
+
                 for (int j=0; j<layers[i]; j++) {
-                    weight[i][j] = new double[layers[i+1]];
-                    dw[i][j] = new double[layers[i+1]];
+                    if (i < layers.length - 2){
+                        nbConnection = layers[i + 1] - 1;
+                    } else {
+                        nbConnection = layers[i + 1];
+                    }
+                    weight[i][j] = new double[nbConnection];
+                    dw[i][j] = new double[nbConnection];
                 }
             }
         }
@@ -262,9 +270,15 @@ public class MyANN extends Classifier
     	}
     }
 
-    private double backPropagation(double[] target){
-        //Reset delta weight
-        resetDw();
+    private double backPropagation(double targetOutput){
+        double[] target = new double[layer[layer.length-1].length];
+        for (int i=0; i<target.length; i++){
+            if (i != targetOutput){
+                target[i] = 0.0;
+            } else {
+                target[i] = 1.0;
+            }
+        }
 
         //Array yang berisi error dari tiap-tiap unit
         double [][] deltas = new double[layer.length][];
@@ -283,11 +297,11 @@ public class MyANN extends Classifier
         }
 
         //hitung error untuk hidden unit
-        for (int i=0; i<layer.length - 1; i++){
+        for (int i=layer.length - 2; i>=0; i--){
             for (int j=0; j<layer[i].length; j++){
                 double deltaOutput = 0;
                 for (int k=0; k<weight[i][j].length; k++) {
-                    deltaOutput = weight[i][j][k] * deltas[i + 1][k];
+                    deltaOutput += weight[i][j][k] * deltas[i + 1][k];
                 }
                 deltas[i][j] = layer[i][j] * (1 - layer[i][j]) * deltaOutput;
             }
@@ -347,9 +361,9 @@ public class MyANN extends Classifier
     
     private void printWeights() {
     	System.out.println("Weights: ");
-    	for (int i = 0; i < layer.length - 1; i++) {
-    		for (int j = 0; j < layer[i].length; j++) {
-    			for (int k = 0; k < layer[i+1].length; k++) {
+    	for (int i = 0; i < weight.length; i++) {
+    		for (int j = 0; j < weight[i].length; j++) {
+    			for (int k = 0; k < weight[i][j].length; k++) {
     				System.out.print(weight[i][j][k] + " ");
     			}
     		}
