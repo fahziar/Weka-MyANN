@@ -114,6 +114,7 @@ public class MyANN extends Classifier
         
         if (!hiddenLayers.equals("n")){ //multi layer perceptron
             mlp = true;
+            activationFunction = "sigmoid";
             String[] splits = hiddenLayers.split(",");
             layers = new int[splits.length+layers.length];
             layers[0] = data.numAttributes() + 1;
